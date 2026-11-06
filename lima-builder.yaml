@@ -1,0 +1,77 @@
+# lima-builder.yaml
+base: template:fedora
+vmType: qemu
+cpus: 4
+memory: 8GiB
+disk: 40GiB
+mounts: []
+
+provision:
+  # RUN dnf install ...
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      rpm -q gcc git openssl-devel pkgconf-pkg-config xz fd ripgrep >/dev/null 2>&1 && exit 0
+      dnf install -y gcc git openssl-devel pkgconf-pkg-config xz fd ripgrep
+
+  # RUN install rust, system-wide
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      [ -x /opt/cargo/bin/rustup ] && exit 0
+      export RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable \
+                   -c clippy -c rustfmt
+      cat > /etc/profile.d/rust.sh <<'EOF'
+      export RUSTUP_HOME=/opt/rustup
+      export CARGO_HOME="$HOME/.cargo"
+      export PATH="/opt/cargo/bin:$PATH"
+      EOF
+      chmod -R a+rX /opt/rustup /opt/cargo
+
+  # RUN install nvm + Node.js LTS, system-wide (shared by all users)
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -ex -o pipefail
+      # Lima's system provisioning runs without HOME; nvm.sh (and its set -u
+      # incompatible references to $HOME) need it set.
+      export HOME=/root
+      export NVM_DIR=/opt/nvm
+      if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+        mkdir -p "$NVM_DIR"
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.41.0/install.sh \
+          | PROFILE=/dev/null bash
+      fi
+      cat > /etc/profile.d/nvm.sh <<'EOF'
+      export NVM_DIR=/opt/nvm
+      [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+      [ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
+      EOF
+      chmod 0644 /etc/profile.d/nvm.sh
+      . "$NVM_DIR/nvm.sh"
+      nvm install --lts
+      nvm alias default 'lts/*'
+      node_bin="$(dirname "$(nvm which default)")"
+      ln -sf "$node_bin/node" /usr/local/bin/node
+      ln -sf "$node_bin/npm" /usr/local/bin/npm
+      ln -sf "$node_bin/npx" /usr/local/bin/npx
+      chmod -R a+rX /opt/nvm
+
+  # RUN install pi, system-wide (shared by all users)
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -ex -o pipefail
+      export HOME=/root
+      export NVM_DIR=/opt/nvm
+      . "$NVM_DIR/nvm.sh"
+      export PI_CODING_AGENT_DIR=/opt/pi/agent
+      if [ ! -x /opt/pi/agent/bin/pi ]; then
+        curl -fsSL https://pi.dev/install.sh | sh
+      fi
+      ln -sf /opt/pi/agent/bin/pi /usr/local/bin/pi
+      chmod -R a+rX /opt/pi

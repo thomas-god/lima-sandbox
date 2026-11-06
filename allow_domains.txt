@@ -1,0 +1,5 @@
+# /etc/squid/allowed_domains.txt  (no leading dot = exact host only)
+index.crates.io
+static.crates.io
+crates.io
+openrouter.ai

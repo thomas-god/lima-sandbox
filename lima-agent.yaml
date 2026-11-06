@@ -1,0 +1,16 @@
+images:
+  - location: /srv/lima-images/agent-base.qcow2
+    arch: x86_64
+
+vmType: qemu
+mounts: [] # don't expose any host directory to the agent
+
+ssh:
+  localPort: 60022 # pinned, because the nft rule allows exactly this port
+propagateProxyEnv: false
+hostResolver:
+  enabled: false
+env:
+  HTTPS_PROXY: http://192.168.5.2:3128
+  HTTP_PROXY: http://192.168.5.2:3128
+  CARGO_HTTP_PROXY: http://192.168.5.2:3128

@@ -1,0 +1,13 @@
+# /etc/systemd/system/lima-egress.service
+[Unit]
+Description=Lima guest egress filter
+After=firewalld.service network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/nftables/lima-egress.nft
+ExecStop=/usr/sbin/nft delete table inet lima_egress
+
+[Install]
+WantedBy=multi-user.target

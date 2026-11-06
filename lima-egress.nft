@@ -1,0 +1,23 @@
+# /etc/nftables/lima-egress.nft
+table inet lima_egress
+delete table inet lima_egress
+
+table inet lima_egress {
+  chain output {
+    type filter hook output priority filter; policy accept;
+
+    # only constrain the Lima user
+    meta skuid != "lima-agent" accept
+
+    # replies on connections already permitted (also covers hostfwd listeners)
+    ct state established,related accept
+
+    # guest -> host loopback: Squid and Lima's pinned ssh port only
+    oifname "lo" ip daddr 127.0.0.1 tcp dport { 3128, 60022 } accept
+
+    # everything else: log (rate-limited), then fail fast
+    limit rate 10/second burst 20 packets log prefix "lima-egress: " level info
+    meta l4proto tcp reject with tcp reset
+    reject with icmpx type admin-prohibited
+  }
+}
