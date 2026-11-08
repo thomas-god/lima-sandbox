@@ -27,6 +27,23 @@ over SSH can be used to sync code between the two environments.
 
 Next sections describe how to install and setup the different parts.
 
+## Alternatives considered and limitations (as of november 2026)
+
+Some the considered alternatives are still in active development so some of their limitations might
+no longer hold in the future.
+
+- [openshell](https://docs.nvidia.com/openshell/about/overview): less isolation than a VM, sandboxes
+  are short-lived (i.e. you can't restart a sandbox that has exited its main process) so they are
+  less ergonomic for doing development on recurring projects. Has the ability to inject secrets at
+  the proxy level (i.e. you don't have to have API key available in the sandbox itself). Allow more
+  granular control of the allow domains list (specific endpoint and method).
+- [Docker sandboxes](https://docs.docker.com/ai/sandboxes/get-started/): VM isolation level, allows
+  injecting secret at the proxy level. Requires a docker login.
+- Plain Lima VM: if you only care about isolation and not about filtering the sandbox egress
+  traffic, a plain Lima VM with the
+  [`--sync`](https://lima-vm.io/docs/examples/ai/#comparison-with-mount) option is a quicker install
+  with less moving parts to manage.
+
 ## Requisites
 
 - Lima installed: https://lima-vm.io/docs/installation/,
