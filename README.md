@@ -1,5 +1,22 @@
 # Sandboxing using Lima VM
 
+## Table of contents
+
+- [Goals and threat model](#goals-and-threat-model)
+- [Setup used](#setup-used)
+- [Alternatives and limitations (as of november 2026)](#alternatives-and-limitations-as-of-november-2026)
+- [Requisites](#requisites)
+- [Setup firewall and proxy](#setup-firewall-and-proxy)
+  - [Update allowed domains](#update-allowed-domains)
+- [Build the base image](#build-the-base-image)
+- [Create guest VMs](#create-guest-vms)
+- [Remote development with IDEs](#remote-development-with-ides-using-zed-as-an-example)
+  - [SSH into the guest VM from your host user](#ssh-into-the-guest-vm-from-your-host-user)
+  - [Syncing a project directory without mounting file](#syncing-a-project-directory-without-mounting-file)
+  - [Zed remote configuration](#zed-remote-configuration)
+  - [Which agent runs where](#which-agent-runs-where)
+- [Troubleshooting](#troubleshooting)
+
 ## Goals and threat model
 
 The setup described in this repository tries to cover for 2 kind of treats coming from untrusted
@@ -27,7 +44,7 @@ over SSH can be used to sync code between the two environments.
 
 Next sections describe how to install and setup the different parts.
 
-## Alternatives considered and limitations (as of november 2026)
+## Alternatives and limitations (as of november 2026)
 
 Some the considered alternatives are still in active development so some of their limitations might
 no longer hold in the future.
