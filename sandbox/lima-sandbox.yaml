@@ -1,5 +1,5 @@
 images:
-  - location: /srv/lima-images/agent-base.qcow2
+  - location: /srv/lima-images/base.qcow2
     arch: x86_64
 
 vmType: qemu

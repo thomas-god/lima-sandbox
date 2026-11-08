@@ -72,7 +72,7 @@ no longer hold in the future.
 First add a dedicated user to run the guest VM as it will be used to filter traffic.
 
 ```bash
-sudo useradd -m -G kvm lima-agent
+sudo useradd -m -G kvm lima
 ```
 
 Then setup egress service and squid proxy.
@@ -108,11 +108,11 @@ sudo tail -f /var/log/squid/access.log
 
 The guest VM requires installing external dependencies (rust toolchain, node, pi, etc.) to be
 functional. To avoid having to add each dependency's domain to the list of squid's allowed domains
-(and since these domains should not be needed by the agent), we first build a base image containing
-all necessary dependencies. The builder is build using the regular user (not `lima-agent`) so that
-it's not affected by the egress rules and can fetch all necessary dependencies. Once the base image
-is built it can then be used as a base when creating new VMs using the dedicated `lima-agent` user,
-those VMs will have their traffic filtered.
+(and since these domains should not be needed by the running code or agent), we first build a base
+image containing all necessary dependencies. The builder is build using the regular user (not
+`lima`) so that it's not affected by the egress rules and can fetch all necessary dependencies. Once
+the base image is built it can then be used as a base when creating new VMs using the dedicated
+`lima` user, those VMs will have their traffic filtered.
 
 ```bash
 chomd +x builder/build-image.sh
@@ -124,28 +124,28 @@ Guest VMs will need to be recreated (stopped, deleted and created) to use the ne
 
 ## Create guest VMs
 
-First copy the template for the guest VMs to the user `lima-agent` home directory (if you update
-this file here donc forget to copy it back to the dedicated user's home).
+First copy the template for the guest VMs to the user `lima` home directory (if you update this file
+here donc forget to copy it back to the dedicated user's home).
 
 ```bash
-sudo cp agent/lima-agent.yaml /home/lima-agent/lima-agent.yaml
+sudo cp sandbox/lima-sandbox.yaml /home/lima/lima-sandbox.yaml
 ```
 
 Now you can create and start dedicated guest VMs using out template and base image:
 
 ```bash
-sudo -iu lima-agent /home/linuxbrew/.linuxbrew/bin/limactl create --name=agent ./lima-agent.yaml
-sudo -iu lima-agent /home/linuxbrew/.linuxbrew/bin/limactl start agent
-sudo -iu lima-agent /home/linuxbrew/.linuxbrew/bin/limactl shell agent
+sudo -iu lima /home/linuxbrew/.linuxbrew/bin/limactl create --name=sandbox ./lima-sandbox.yaml
+sudo -iu lima /home/linuxbrew/.linuxbrew/bin/limactl start sandbox
+sudo -iu lima /home/linuxbrew/.linuxbrew/bin/limactl shell sandbox
 ```
 
-You can alias `lima-agent`'s `limactl` for ease of use, e.g. for fish and assuming `lima` has been
-installed using homebrew: `alias lm="sudo -iu lima-agent /home/linuxbrew/.linuxbrew/bin/limactl"`.
+You can alias `lima`'s `limactl` for ease of use, e.g. for fish and assuming `limactl` has been
+installed using homebrew: `alias lm="sudo -iu lima /home/linuxbrew/.linuxbrew/bin/limactl"`.
 
 You can check that dependencies and egress work properly:
 
 ```bash
-sudo -iu lima-agent /home/linuxbrew/.linuxbrew/bin/limactl shell agent
+sudo -iu lima /home/linuxbrew/.linuxbrew/bin/limactl shell sandbox
 rustc --version                 # should be installed
 cargo search serde              # should be able to contact crates.io
 curl -sI https://example.com    # should get a 403 from from squid
@@ -155,27 +155,27 @@ curl -sI https://example.com    # should get a 403 from from squid
 
 ### SSH into the guest VM from your host user
 
-The agent VMs are started by the dedicated `lima-agent` host user, so their SSH endpoint
-(`127.0.0.1:60022`) authenticates against Lima's per-user key at
-`/home/lima-agent/.lima/_config/user`. Since your own user cannot read it IDEs running as your
-regular user need a readable copy of that key plus a `Host` block describing the connection.
+The sandbox VMs are started by the dedicated `lima` host user, so their SSH endpoint
+(`127.0.0.1:60022`) authenticates against Lima's per-user key at `/home/lima/.lima/_config/user`.
+Since your own user cannot read it IDEs running as your regular user need a readable copy of that
+key plus a `Host` block describing the connection.
 
-Copy Lima's key for the agent VMs so your user can read it:
+Copy Lima's key for the sandbox VMs so your user can read it:
 
 ```bash
 sudo install -m 600 -o "$USER" -g "$USER" \
-  /home/lima-agent/.lima/_config/user ~/.ssh/lima-agent
+  /home/lima/.lima/_config/user ~/.ssh/lima
 ```
 
 Describe the VM in your SSH config (~/.ssh/config already Includes ~/.lima/*/ssh.config)
 
 ```bash
-# agent sandbox VM (managed by the lima-agent host user)
-Host lima-agent
+# sandbox VM (managed by the lima host user)
+Host lima
   HostName 127.0.0.1
   Port 60022
-  User lima-agent
-  IdentityFile ~/.ssh/lima-agent
+  User lima
+  IdentityFile ~/.ssh/lima
   IdentitiesOnly yes
   StrictHostKeyChecking no
   UserKnownHostsFile /dev/null
@@ -184,7 +184,7 @@ Host lima-agent
 Check the connection:
 
 ```bash
-ssh lima-agent
+ssh lima
 ```
 
 ### Syncing a project directory without mounting file
@@ -195,19 +195,19 @@ section) to avoid having to mess with permission on the host side.
 To send a repository from the host to the guest:
 
 ```bash
-rsync -av --exclude-from=".limasyncignore" -e ssh /home/user/project lima-agent:/home/lima-agent.guest/project
+rsync -av --exclude-from=".limasyncignore" -e ssh /home/user/project lima:/home/lima.guest/project
 ```
 
 To get back diffs made on the guest to the host:
 
 ```bash
-rsync -av --exclude-from=".limasyncignore" -e ssh lima-agent:/home/lima-agent.guest/project/ /home/user/project
+rsync -av --exclude-from=".limasyncignore" -e ssh lima:/home/lima.guest/project/ /home/user/project
 ```
 
 Don't forget the trailing `/` on the guest path, else the directory content will not be copy at your
 host project root but copied at `/home/user/project/project`.
 
-Use the content of `agent/.limasyncignore` to exclude files from the sync.
+Use the content of `sandbox/.limasyncignore` to exclude files from the sync.
 
 ### Zed remote configuration
 
@@ -218,17 +218,16 @@ Add the connection to `~/.config/zed/settings.json` as per
 {
   "ssh_connections": [
     {
-      "host": "lima-agent",
-      "username": "lima-agent",
-      "projects": [{ "paths": ["/home/lima-agent.guest"] }]
+      "host": "lima",
+      "username": "lima",
+      "projects": [{ "paths": ["/home/lima.guest"] }]
     }
   ]
 }
 ```
 
 `username` must be set explicitly: otherwise Zed defaults to your local username and overrides the
-`User` from the SSH config. `lima-agent` has its home set at `/home/lima-agent.guest` (note the
-`.guest`).
+`User` from the SSH config. `lima` has its home set at `/home/lima.guest` (note the `.guest`).
 
 ### Which agent runs where
 
@@ -242,8 +241,8 @@ check for your specific IDE otherwise.
 - **Zed's native "Zed Agent"**: the agent loop runs **on the host**. Its file edits and
   terminal/tool calls are routed to the guest over the RPC channel, but its **LLM API requests
   originate from the host** with host credentials and network policy. It is **not** covered by the
-  `lima-agent` egress filter. Host-side model features such as the inline assistant and edit
-  prediction behave the same way.
+  `lima` egress filter. Host-side model features such as the inline assistant and edit prediction
+  behave the same way.
 
 ## Troubleshooting
 
@@ -251,12 +250,12 @@ check for your specific IDE otherwise.
   - check that it is correctly installed in the `builder` image:
     `limactl shell builder -- rustc --version`.
   - check that the guest VM is using the `builder` image as a base:
-    `sudo -iu lima-agent limactl list agent --format json | jq '.config.images'`. It should point to
-    the output location of `build-image.sh` (`/srv/lima-images/`) and not to Fedora's download.
-  - if you've edited the agent VM template `lima-agent.yaml`, check you've copied it to
-    `lima-agent`'s home: `sudo cp lima-agent.yaml /home/lima-agent/lima-agent.yaml`.
+    `sudo -iu lima limactl list sandbox --format json | jq '.config.images'`. It should point to the
+    output location of `build-image.sh` (`/srv/lima-images/`) and not to Fedora's download.
+  - if you've edited the sandbox VM template `lima-sandbox.yaml`, check you've copied it to `lima`'s
+    home: `sudo cp lima-sandbox.yaml /home/lima/lima-sandbox.yaml`.
 - if you have trouble connecting via SSH into the guest VM make sure Lima has not regenerated the
-  user config `/home/lima-agent/.lima/_config/user`, else redo
+  user config `/home/lima/.lima/_config/user`, else redo
   [these steps](#ssh-into-the-guest-vm-from-your-host-user).
 - if your application has tests that start a local HTTP server and send requests to it, your request
   library might honor the HTTP_PROXY environment variable: test requests will leave the sandbox, be

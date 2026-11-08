@@ -7,7 +7,7 @@ table inet lima_egress {
     type filter hook output priority filter; policy accept;
 
     # only constrain the Lima user
-    meta skuid != "lima-agent" accept
+    meta skuid != "lima" accept
 
     # replies on connections already permitted (also covers hostfwd listeners)
     ct state established,related accept
